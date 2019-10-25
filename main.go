@@ -37,6 +37,7 @@ var (
 	// Global flags
 	includes   = app.Flag("include", "Resource sets to include explicitly").Short('i').Strings()
 	excludes   = app.Flag("exclude", "Resource sets to exclude explicitly").Short('e').Strings()
+	excludeJson = app.Flag("excludeJson", "exclude all json files").Short('j').Bool()
 	variables  = app.Flag("var", "Provide variables to templates explicitly").Strings()
 	kubectlBin = app.Flag("kubectl", "Path to the kubectl binary (default 'kubectl')").Default("kubectl").String()
 
@@ -190,7 +191,7 @@ func loadContextAndResources(file *string) (*context.Context, *[]templater.Rende
 		app.Fatalf("Error loading context: %v\n", err)
 	}
 
-	resources, err := templater.LoadAndApplyTemplates(includes, excludes, ctx)
+	resources, err := templater.LoadAndApplyTemplates(includes, excludes, ctx, *excludeJson)
 	if err != nil {
 		app.Fatalf("Error templating resource sets: %v\n", err)
 	}

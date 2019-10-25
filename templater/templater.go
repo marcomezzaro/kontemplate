@@ -38,7 +38,7 @@ type RenderedResourceSet struct {
 	Args      []string
 }
 
-func LoadAndApplyTemplates(include *[]string, exclude *[]string, c *context.Context) ([]RenderedResourceSet, error) {
+func LoadAndApplyTemplates(include *[]string, exclude *[]string, c *context.Context, excludeJson bool) ([]RenderedResourceSet, error) {
 	limitedResourceSets := applyLimits(&c.ResourceSets, include, exclude)
 	renderedResourceSets := make([]RenderedResourceSet, 0)
 
@@ -47,7 +47,7 @@ func LoadAndApplyTemplates(include *[]string, exclude *[]string, c *context.Cont
 	}
 
 	for _, rs := range *limitedResourceSets {
-		set, err := processResourceSet(c, &rs)
+		set, err := processResourceSet(c, &rs, excludeJson)
 
 		if err != nil {
 			return nil, err
@@ -59,7 +59,7 @@ func LoadAndApplyTemplates(include *[]string, exclude *[]string, c *context.Cont
 	return renderedResourceSets, nil
 }
 
-func processResourceSet(ctx *context.Context, rs *context.ResourceSet) (*RenderedResourceSet, error) {
+func processResourceSet(ctx *context.Context, rs *context.ResourceSet, excludeJson bool) (*RenderedResourceSet, error) {
 	fmt.Fprintf(os.Stderr, "Loading resources for %s\n", rs.Name)
 
 	fileInfo, err := os.Stat(rs.Path)
@@ -78,7 +78,7 @@ func processResourceSet(ctx *context.Context, rs *context.ResourceSet) (*Rendere
 		// This will end up printing a warning to the user, but it
 		// won't stop the rest of the process.
 		files, _ = ioutil.ReadDir(rs.Path)
-		resources, err = processFiles(ctx, rs, files)
+		resources, err = processFiles(ctx, rs, files, excludeJson)
 		if err != nil {
 			return nil, err
 		}
@@ -98,11 +98,11 @@ func processResourceSet(ctx *context.Context, rs *context.ResourceSet) (*Rendere
 	}, nil
 }
 
-func processFiles(ctx *context.Context, rs *context.ResourceSet, files []os.FileInfo) ([]RenderedResource, error) {
+func processFiles(ctx *context.Context, rs *context.ResourceSet, files []os.FileInfo, excludeJson bool) ([]RenderedResource, error) {
 	resources := make([]RenderedResource, 0)
 
 	for _, file := range files {
-		if !file.IsDir() && isResourceFile(file) {
+		if !file.IsDir() && isResourceFile(file, excludeJson) {
 			path := path.Join(rs.Path, file.Name())
 			res, err := templateFile(ctx, rs, path)
 
@@ -223,14 +223,21 @@ func templateFuncs(c *context.Context, rs *context.ResourceSet) template.FuncMap
 }
 
 // Checks whether a file is a resource file (i.e. is YAML or JSON) and not a default values file.
-func isResourceFile(f os.FileInfo) bool {
+func isResourceFile(f os.FileInfo, excludeJson bool) bool {
 	for _, defaultFile := range util.DefaultFilenames {
 		if f.Name() == defaultFile {
 			return false
 		}
 	}
 
-	return strings.HasSuffix(f.Name(), "yaml") ||
-		strings.HasSuffix(f.Name(), "yml") ||
-		strings.HasSuffix(f.Name(), "json")
+	if excludeJson {
+		return strings.HasSuffix(f.Name(), "yaml") ||
+			strings.HasSuffix(f.Name(), "yml")
+	} else {
+		return strings.HasSuffix(f.Name(), "yaml") ||
+			strings.HasSuffix(f.Name(), "yml") ||
+			strings.HasSuffix(f.Name(), "json")
+	}
+
+
 }
